@@ -8,11 +8,26 @@ from PIL import Image, ImageDraw
 from docx import Document
 from docx.shared import Inches
 from fastapi.testclient import TestClient
+from openpyxl import Workbook
 from pptx import Presentation
 from pptx.util import Inches as PptInches
 
 from Converter import ConversionError, convert_to_markdown
-from app import app
+from app import create_app
+from settings import Settings
+
+
+def _test_settings(tmp_path: Path) -> Settings:
+    return Settings(
+        db_url=f"sqlite:///{tmp_path}/test.db",
+        storage_root=tmp_path / "storage",
+        max_concurrent_jobs=1,
+        enable_scheduler=False,
+        retry_initial_delay=0.01,
+        retry_backoff_factor=1.0,
+        max_retries=1,
+        polling_interval=1,
+    )
 
 
 def _make_sample_image(tmp_path: Path) -> Path:
@@ -124,38 +139,84 @@ def test_pdf_to_markdown(tmp_path: Path) -> None:
     assert md_text.count("```") == 2  # one pair of fences
 
 
+def test_csv_to_markdown(tmp_path: Path) -> None:
+    csv_path = tmp_path / "sample.csv"
+    csv_path.write_text("name,age\nAlice,30\nBob,25", encoding="utf-8")
+    result = convert_to_markdown(csv_path.read_bytes(), csv_path.name)
+    md = result.markdown
+    assert "| name | age |" in md
+    assert "| Alice | 30 |" in md
+
+
+def test_xlsx_to_markdown(tmp_path: Path) -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Sheet One"
+    ws.append(["col1", "col2"])
+    ws.append(["val1", "val2"])
+    buff = BytesIO()
+    wb.save(buff)
+
+    result = convert_to_markdown(buff.getvalue(), "workbook.xlsx")
+    md = result.markdown
+    assert "Sheet One" in md
+    assert "| col1 | col2 |" in md
+    assert "| val1 | val2 |" in md
+
+
+def test_html_and_txt_conversion(tmp_path: Path) -> None:
+    html = "<html><body><h1>Title</h1><p>Paragraph</p></body></html>"
+    html_result = convert_to_markdown(html.encode("utf-8"), "page.html")
+    assert "# Title" in html_result.markdown
+    assert "Paragraph" in html_result.markdown
+
+    txt_path = tmp_path / "sample.txt"
+    txt_path.write_text("first line\n\nsecond line", encoding="utf-8")
+    txt_result = convert_to_markdown(txt_path.read_bytes(), txt_path.name)
+    assert "first line" in txt_result.markdown
+    assert "second line" in txt_result.markdown
+
+
 def test_unsupported_extension(tmp_path: Path) -> None:
-    src = tmp_path / "note.txt"
-    src.write_text("hello", encoding="utf-8")
+    src = tmp_path / "note.bin"
+    src.write_bytes(b"hello")
     with pytest.raises(ConversionError):
         convert_to_markdown(src.read_bytes(), src.name)
 
 
 def test_fastapi_convert_endpoint(tmp_path: Path) -> None:
-    client = TestClient(app)
-    image_path = _make_sample_image(tmp_path)
+    client_app = create_app(settings=_test_settings(tmp_path))
+    with TestClient(client_app) as client:
+        image_path = _make_sample_image(tmp_path)
 
-    doc = Document()
-    doc.add_paragraph("API Docx")
-    doc.add_picture(str(image_path))
-    buff = BytesIO()
-    doc.save(buff)
+        doc = Document()
+        doc.add_paragraph("API Docx")
+        doc.add_picture(str(image_path))
+        buff = BytesIO()
+        doc.save(buff)
 
-    files = {"file": ("api.docx", buff.getvalue(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
-    resp = client.post("/convert", files=files)
+        files = {
+            "file": (
+                "api.docx",
+                buff.getvalue(),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        }
+        resp = client.post("/convert", files=files)
 
-    assert resp.status_code == 200
-    payload = resp.json()
-    assert "markdown" in payload and "assets" in payload
-    assert "API Docx" in payload["markdown"]
-    assert payload["assets"]
-    first_asset = payload["assets"][0]
-    decoded = base64.b64decode(first_asset["data_base64"])
-    assert decoded.startswith(b"\x89PNG") or decoded.startswith(b"\xff\xd8")
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert "markdown" in payload and "assets" in payload
+        assert "API Docx" in payload["markdown"]
+        assert payload["assets"]
+        first_asset = payload["assets"][0]
+        decoded = base64.b64decode(first_asset["data_base64"])
+        assert decoded.startswith(b"\x89PNG") or decoded.startswith(b"\xff\xd8")
 
 
 def test_fastapi_rejects_unknown_extension(tmp_path: Path) -> None:
-    client = TestClient(app)
-    files = {"file": ("note.txt", b"hello", "text/plain")}
-    resp = client.post("/convert", files=files)
-    assert resp.status_code == 400
+    client_app = create_app(settings=_test_settings(tmp_path))
+    with TestClient(client_app) as client:
+        files = {"file": ("note.bin", b"hello", "application/octet-stream")}
+        resp = client.post("/convert", files=files)
+        assert resp.status_code == 400

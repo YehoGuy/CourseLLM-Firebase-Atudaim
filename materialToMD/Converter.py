@@ -1,12 +1,8 @@
-"""
-Converter for PDF, DOCX, and PPT/PPTX files to Markdown.
-
-The main entrypoint is `convert_to_markdown(file_bytes, filename)` which returns the
-rendered Markdown string plus extracted assets encoded in-memory.
-"""
+"""Conversion utilities to normalize many office formats into Markdown plus assets."""
 from __future__ import annotations
 
 import base64
+import csv
 import mimetypes
 from dataclasses import dataclass
 from io import BytesIO
@@ -16,6 +12,8 @@ import statistics
 from typing import Iterable, List, Optional
 
 import fitz  # PyMuPDF
+from markdownify import markdownify as html_to_markdown
+from openpyxl import load_workbook
 from docx import Document
 from docx.oxml.ns import qn
 from docx.oxml.table import CT_Tbl
@@ -48,16 +46,7 @@ _ASSET_PREFIX = "assets"
 
 
 def convert_to_markdown(file_bytes: bytes, filename: str) -> ConvertedDocument:
-    """
-    Convert a PDF, DOCX, or PPT/PPTX file to Markdown.
-
-    Args:
-        file_bytes: Raw bytes of the uploaded file.
-        filename: Original filename (used to derive extension for routing).
-
-    Returns:
-        ConvertedDocument containing Markdown and a list of extracted assets.
-    """
+    """Convert a supported file's bytes into Markdown plus embedded assets."""
     extension = Path(filename).suffix.lower()
     assets: List[Asset] = []
 
@@ -74,6 +63,14 @@ def convert_to_markdown(file_bytes: bytes, filename: str) -> ConvertedDocument:
         markdown = _convert_ppt(file_bytes, add_asset)
     elif extension == ".docx":
         markdown = _convert_docx(file_bytes, add_asset)
+    elif extension == ".csv":
+        markdown = _convert_csv(file_bytes)
+    elif extension == ".xlsx":
+        markdown = _convert_xlsx(file_bytes)
+    elif extension == ".html":
+        markdown = _convert_html(file_bytes)
+    elif extension == ".txt":
+        markdown = _convert_txt(file_bytes)
     else:
         raise ConversionError(f"Unsupported file type: {extension}")
 
@@ -81,6 +78,7 @@ def convert_to_markdown(file_bytes: bytes, filename: str) -> ConvertedDocument:
 
 
 def _convert_pdf(file_bytes: bytes, add_asset) -> str:
+    """Extract text, headings, lists, code, and images from a PDF into Markdown."""
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     md_parts: List[str] = []
     image_index = 1
@@ -140,13 +138,23 @@ def _convert_pdf(file_bytes: bytes, add_asset) -> str:
                     image_bytes = raw_image
                     filename = f"page{page_number + 1}_img{image_index}.{ext}"
                 else:
-                    pix = fitz.Pixmap(doc, raw_image)
-                    if pix.n - pix.alpha > 3:
-                        pix = fitz.Pixmap(fitz.csRGB, pix)
-                    image_bytes = pix.tobytes("png")
-                    ext = "png"
-                    content_type = "image/png"
-                    filename = f"page{page_number + 1}_img{image_index}.{ext}"
+                    try:
+                        extracted = doc.extract_image(raw_image)
+                        image_bytes = extracted.get("image")
+                        ext = extracted.get("ext", ext) or ext
+                        content_type = mimetypes.guess_type(f"file.{ext}")[0] or "image/png"
+                        filename = f"page{page_number + 1}_img{image_index}.{ext}"
+                    except Exception:
+                        pix = fitz.Pixmap(doc, raw_image)
+                        # Normalize colorspace (including CMYK) and flatten alpha to avoid black fills.
+                        if pix.colorspace and pix.colorspace.n not in (0, 1, 3):
+                            pix = fitz.Pixmap(fitz.csRGB, pix)
+                        if pix.alpha:
+                            pix = fitz.Pixmap(fitz.csRGB, pix)
+                        image_bytes = pix.tobytes("png")
+                        ext = "png"
+                        content_type = "image/png"
+                        filename = f"page{page_number + 1}_img{image_index}.{ext}"
                 asset_ref = add_asset(filename, image_bytes, content_type)
                 md_parts.append(
                     f"![Page {page_number + 1} Image {image_index}]({asset_ref})"
@@ -166,6 +174,7 @@ def _convert_pdf(file_bytes: bytes, add_asset) -> str:
 
 
 def _convert_docx(file_bytes: bytes, add_asset) -> str:
+    """Render a DOCX document into Markdown including headings, lists, tables, and images."""
     document = Document(BytesIO(file_bytes))
     md_lines: List[str] = []
     image_index = 1
@@ -262,6 +271,7 @@ def _convert_docx(file_bytes: bytes, add_asset) -> str:
 
 
 def _iter_block_items(parent) -> Iterable[Paragraph | Table]:
+    """Yield block-level elements (paragraphs and tables) from a DOCX parent."""
     body = parent.element.body
     for child in body.iterchildren():
         if isinstance(child, CT_P):
@@ -271,6 +281,7 @@ def _iter_block_items(parent) -> Iterable[Paragraph | Table]:
 
 
 def _list_level(paragraph: Paragraph) -> Optional[int]:
+    """Determine the nesting level for numbered/bulleted paragraphs in DOCX."""
     p = paragraph._p
     if p is None or p.pPr is None or p.pPr.numPr is None:
         return None
@@ -279,6 +290,7 @@ def _list_level(paragraph: Paragraph) -> Optional[int]:
 
 
 def _table_to_markdown(table: Table, render_runs) -> str:
+    """Convert a DOCX table to Markdown syntax."""
     rows: List[List[str]] = []
     for row in table.rows:
         cells: List[str] = []
@@ -306,6 +318,7 @@ def _table_to_markdown(table: Table, render_runs) -> str:
 
 
 def _convert_ppt(file_bytes: bytes, add_asset) -> str:
+    """Render PPT/PPTX slides into Markdown with headings, bullets, and images."""
     pres = Presentation(BytesIO(file_bytes))
     md_parts: List[str] = []
     image_index = 1
@@ -338,7 +351,66 @@ def _convert_ppt(file_bytes: bytes, add_asset) -> str:
     return "\n".join(md_parts).strip()
 
 
+def _convert_csv(file_bytes: bytes) -> str:
+    """Convert CSV content into a Markdown table."""
+    text = file_bytes.decode("utf-8", errors="ignore")
+    reader = csv.reader(text.splitlines())
+    rows = list(reader)
+    if not rows:
+        return ""
+    header = rows[0]
+    width = len(header)
+    md_lines = [
+        "| " + " | ".join(_escape_markdown(cell.strip()) for cell in header) + " |",
+        "| " + " | ".join("---" for _ in header) + " |",
+    ]
+    for row in rows[1:]:
+        padded = list(row) + [""] * (width - len(row))
+        md_lines.append("| " + " | ".join(_escape_markdown(cell.strip() or " ") for cell in padded) + " |")
+    return "\n".join(md_lines)
+
+
+def _convert_xlsx(file_bytes: bytes) -> str:
+    """Convert each worksheet of an Excel workbook into Markdown tables."""
+    wb = load_workbook(filename=BytesIO(file_bytes), data_only=True)
+    parts: List[str] = []
+    for sheet in wb.worksheets:
+        title = sheet.title or "Sheet"
+        parts.append(_format_heading(title, 2))
+        rows = list(sheet.iter_rows(values_only=True))
+        if not rows:
+            continue
+        header = ["" if cell is None else str(cell) for cell in rows[0]]
+        width = len(header)
+        table_lines = [
+            "| " + " | ".join(_escape_markdown(str(cell)) for cell in header) + " |",
+            "| " + " | ".join("---" for _ in header) + " |",
+        ]
+        for row in rows[1:]:
+            cells = list(row) if row else []
+            padded = cells + ["" for _ in range(width - len(cells))]
+            table_lines.append(
+                "| " + " | ".join(_escape_markdown("" if cell is None else str(cell)) for cell in padded) + " |"
+            )
+        parts.append("\n".join(table_lines))
+    return "\n\n".join(part for part in parts if part).strip()
+
+
+def _convert_html(file_bytes: bytes) -> str:
+    """Convert HTML content to Markdown using markdownify."""
+    html = file_bytes.decode("utf-8", errors="ignore")
+    markdown = html_to_markdown(html, heading_style="ATX")
+    return _collapse_blank_lines(markdown)
+
+
+def _convert_txt(file_bytes: bytes) -> str:
+    """Normalize plain text by collapsing whitespace."""
+    text = file_bytes.decode("utf-8", errors="ignore")
+    return _collapse_blank_lines(text)
+
+
 def _heading_level(style_name: str) -> int:
+    """Infer heading level from a DOCX style name."""
     for token in style_name.split():
         if token.isdigit():
             return int(token)
@@ -351,6 +423,7 @@ def _heading_level(style_name: str) -> int:
 
 
 def _escape_markdown(text: str) -> str:
+    """Escape special Markdown characters to prevent unintended formatting."""
     escaped = text
     for char, replacement in _MD_ESCAPE_CHARS.items():
         escaped = escaped.replace(char, replacement)
@@ -358,6 +431,7 @@ def _escape_markdown(text: str) -> str:
 
 
 def _average_font_size(blocks) -> float:
+    """Compute an average font size for a PDF page to help detect headings."""
     sizes: List[float] = []
     for block in blocks:
         if block.get("type") != 0:
@@ -371,6 +445,7 @@ def _average_font_size(blocks) -> float:
 
 
 def _render_pdf_text_block(block, avg_font: float) -> tuple[str | dict, bool]:
+    """Render a PDF text block to Markdown and flag whether it looks like code."""
     lines: List[str] = []
     font_sizes: List[float] = []
     for line in block.get("lines", []):
@@ -412,20 +487,24 @@ _BULLET_PATTERN = re.compile(r"^\s*([\-\u2022\u2023\u25CF\*]|(\d+[\.\)]))\s+")
 
 
 def _looks_like_list_item(line: str) -> bool:
+    """Check whether a line begins with a bullet or numbered prefix."""
     return bool(_BULLET_PATTERN.match(line))
 
 
 def _format_list_line(line: str) -> str:
+    """Normalize a list line to Markdown bullet syntax."""
     stripped = _BULLET_PATTERN.sub("", line).strip()
     return f"- {_wrap_direction(stripped, inline=True)}"
 
 
 def _normalize_whitespace(text: str) -> str:
+    """Collapse whitespace and insert bidi spacing where necessary."""
     collapsed = re.sub(r"\s+", " ", text or "").strip()
     return _insert_bidi_spacing(collapsed)
 
 
 def _pdf_heading_level(block_font: float, avg_font: float) -> int:
+    """Determine if a PDF text block should be treated as a heading based on font size."""
     if block_font >= avg_font * 1.8:
         return 1
     if block_font >= avg_font * 1.35:
@@ -437,6 +516,7 @@ _CODE_HINT = re.compile(r"[{}<>;=;()]")
 
 
 def _looks_like_code_block(lines: List[str]) -> bool:
+    """Detect if a collection of lines resembles a code block."""
     if not lines:
         return False
     code_like = sum(1 for line in lines if _CODE_HINT.search(line))
@@ -454,10 +534,12 @@ _LINE_NUMBER_PATTERN = re.compile(r"^\d+\.?$")
 
 
 def _is_rtl(text: str) -> bool:
+    """Return True if the text contains right-to-left characters (Hebrew)."""
     return bool(_HEBREW_PATTERN.search(text or ""))
 
 
 def _wrap_direction(text: str, inline: bool) -> str:
+    """Wrap RTL text in direction-aware tags when needed."""
     if not text or not _is_rtl(text):
         return text
     tag = "span" if inline else "div"
@@ -465,10 +547,12 @@ def _wrap_direction(text: str, inline: bool) -> str:
 
 
 def _insert_bidi_spacing(text: str) -> str:
+    """Insert a space between RTL and LTR text boundaries for readability."""
     return _BIDI_BOUNDARY.sub(" ", text)
 
 
 def _collapse_blank_lines(text: str) -> str:
+    """Collapse multiple consecutive blank lines to a single blank line."""
     lines = text.splitlines()
     collapsed: List[str] = []
     previous_blank = False
@@ -484,6 +568,7 @@ def _collapse_blank_lines(text: str) -> str:
 
 
 def _is_plain_text(text: str) -> bool:
+    """Heuristic to decide if Markdown text is plain prose for concatenation."""
     if not text:
         return False
     stripped = text.lstrip()
@@ -494,6 +579,7 @@ def _is_plain_text(text: str) -> bool:
 
 
 def _looks_like_page_number(lines: List[str]) -> bool:
+    """Detect isolated page number strings to avoid rendering them."""
     if len(lines) != 1:
         return False
     text = lines[0].strip()
@@ -501,6 +587,7 @@ def _looks_like_page_number(lines: List[str]) -> bool:
 
 
 def _merge_numbered_lines(lines: List[str]) -> List[str]:
+    """Merge line-number-only rows with the following line for better flow."""
     merged: List[str] = []
     i = 0
     while i < len(lines):
@@ -515,6 +602,7 @@ def _merge_numbered_lines(lines: List[str]) -> List[str]:
 
 
 def _format_heading(text: str, level: int) -> str:
+    """Format a string as a Markdown heading respecting RTL content."""
     text = text.strip()
     if not text:
         return ""
