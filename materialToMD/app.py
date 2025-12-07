@@ -1,6 +1,7 @@
 """FastAPI wiring for the File Normalization Service HTTP API surface."""
 
 from datetime import datetime
+import os
 from typing import List, Optional
 
 from contextlib import asynccontextmanager
@@ -15,6 +16,27 @@ from jobs import JobManager
 from models import JobStatus
 from settings import Settings, get_settings
 
+from db import save_job, get_job, list_jobs_for_user, get_db
+from datetime import datetime, timezone
+from uuid import uuid4
+
+from google.cloud import storage as gcs           
+from google.auth.credentials import AnonymousCredentials
+
+def create_job_flow(job_id: str, user_id: str, payload: dict) -> None:
+    save_job(job_id, {
+        "user_id": user_id,
+        "payload": payload,
+        "status": "pending",
+    })
+
+
+def read_job_flow(job_id: str):
+    job = get_job(job_id)
+    if job is None:
+        print("Job not found")
+    else:
+        print("Job:", job)
 
 class AssetResponse(BaseModel):
     path: str
@@ -79,6 +101,8 @@ def create_app(settings: Optional[Settings] = None, manager: Optional[JobManager
         allow_headers=["*"],
     )
 
+
+
     def get_manager(request: Request) -> JobManager:
         return request.app.state.job_manager  # type: ignore[attr-defined]
 
@@ -91,6 +115,45 @@ def create_app(settings: Optional[Settings] = None, manager: Optional[JobManager
         except ConversionError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+        # ---------- 1) Upload Markdown to Firebase Storage EMULATOR ----------
+        storage_host = os.getenv("FIREBASE_STORAGE_EMULATOR_HOST", "127.0.0.1:9199")
+        project_id = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCLOUD_PROJECT")
+        bucket_name = os.getenv("FIREBASE_STORAGE_BUCKET") or f"{project_id}.appspot.com"
+
+        # Create a storage client that talks to the emulator with anonymous creds
+        client = gcs.Client(
+            project=project_id,
+            credentials=AnonymousCredentials(),
+            client_options={"api_endpoint": f"http://{storage_host}"}
+        )
+
+        bucket = client.bucket(bucket_name)
+        job_id = f"convert-{uuid4().hex}"
+        md_path = f"converted/{job_id}.md"
+
+        blob = bucket.blob(md_path)
+        blob.upload_from_string(
+            result.markdown,
+            content_type="text/markdown",
+        )
+
+        # Build a local emulator URL for convenience
+        safe_path = md_path.replace("/", "%2F")
+        output_md_url = f"http://{storage_host}/v0/b/{bucket_name}/o/{safe_path}?alt=media"
+
+        # ---------- 2) Save metadata into Firestore ----------
+        db = get_db()
+        db.collection("conversion_jobs").document(job_id).set({
+            "job_id": job_id,
+            "file_name": file.filename,
+            "input_file_type": file.filename.split(".")[-1].lower(),
+            "status": "completed",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "output_md_path": md_path,
+            "output_md_url": output_md_url,
+        })
+
+        # ---------- 3) Original response ----------
         assets = [
             AssetResponse(path=asset.path, content_type=asset.content_type, data_base64=asset.data_base64)
             for asset in result.assets
