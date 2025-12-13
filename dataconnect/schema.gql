@@ -50,29 +50,26 @@ type SourceFile @table {
   id: UUID!
 
   owner: User!           # teacher who uploaded
-  course: Course         # nullable if uploading outside a course
+  course: Course       
 
   fileName: String!
   fileType: SourceFileType!
   mimeType: String
   sizeBytes: Int
 
-  # Cloud Storage path to the raw file
-  storagePath: String!   # e.g. "uploads/{uid}/{uuid}/lecture1.pptx"
+  storagePath: String!
 
   createdAt: Timestamp!
 }
 
-# The produced markdown file is also stored in Cloud Storage. :contentReference[oaicite:2]{index=2}
 type MarkdownArtifact @table {
   id: UUID!
 
   sourceFile: SourceFile!
 
-  mdStoragePath: String!          # "converted/{uid}/{uuid}/lecture1.md"
-  assetsStoragePrefix: String     # "converted/{uid}/{uuid}/assets/" (optional)
+  mdStoragePath: String!          
+  assetsStoragePrefix: String    
 
-  # Optional: cached preview for fast UI display
   previewText: String
   previewHtml: String
 

@@ -1,7 +1,7 @@
 export type AssetResponse = {
   path: string;
   content_type: string;
-  data_base64: string; // base64 bytes
+  data_base64: string; 
 };
 
 export type ConvertResponse = {
