@@ -1,0 +1,132 @@
+# dataconnect/schema.gql
+
+scalar JSON
+scalar Timestamp
+scalar UUID
+
+enum UserRole {
+  TEACHER
+  STUDENT
+  ADMIN
+}
+
+enum SourceFileType {
+  PPTX
+  DOCX
+  PDF
+  HTML
+  TXT
+  OTHER
+}
+
+enum ConversionStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+# Remove the next two blocks if we already has a global User
+# If there is already a User type elsewhere in CourseLLM:
+#  - delete this type,
+#  - update references below to point to the existing User type.
+type User @table {
+  id: String!            # Firebase Auth UID
+  email: String!
+  role: UserRole!
+  displayName: String
+  createdAt: Timestamp!
+}
+
+type Course @table {
+  id: UUID!
+  title: String!
+  teacher: User!
+  createdAt: Timestamp!
+}
+
+type SourceFile @table {
+  id: UUID!
+
+  owner: User!           # teacher who uploaded
+  course: Course         # nullable if uploading outside a course
+
+  fileName: String!
+  fileType: SourceFileType!
+  mimeType: String
+  sizeBytes: Int
+
+  # Cloud Storage path to the raw file
+  storagePath: String!   # e.g. "uploads/{uid}/{uuid}/lecture1.pptx"
+
+  createdAt: Timestamp!
+}
+
+# The produced markdown file is also stored in Cloud Storage. :contentReference[oaicite:2]{index=2}
+type MarkdownArtifact @table {
+  id: UUID!
+
+  sourceFile: SourceFile!
+
+  mdStoragePath: String!          # "converted/{uid}/{uuid}/lecture1.md"
+  assetsStoragePrefix: String     # "converted/{uid}/{uuid}/assets/" (optional)
+
+  # Optional: cached preview for fast UI display
+  previewText: String
+  previewHtml: String
+
+  createdAt: Timestamp!
+}
+
+type ConversionJob @table {
+  id: UUID!
+
+  sourceFile: SourceFile!
+  artifact: MarkdownArtifact
+
+  status: ConversionStatus!
+  progress: Int
+  errorMessage: String
+  logs: JSON
+
+  requestedAt: Timestamp!
+  startedAt: Timestamp
+  finishedAt: Timestamp
+}
+
+type Query {
+  listMySourceFiles(ownerId: String!, limit: Int, offset: Int): [SourceFile!]!
+  listJobsForSourceFile(sourceFileId: UUID!): [ConversionJob!]!
+  getMarkdownArtifact(id: UUID!): MarkdownArtifact
+}
+
+type Mutation {
+  createSourceFile(
+    ownerId: String!
+    courseId: UUID
+    fileName: String!
+    fileType: SourceFileType!
+    mimeType: String
+    sizeBytes: Int
+    storagePath: String!
+  ): SourceFile!
+
+  createConversionJob(sourceFileId: UUID!): ConversionJob!
+
+  updateConversionJobStatus(
+    jobId: UUID!
+    status: ConversionStatus!
+    progress: Int
+    errorMessage: String
+    logs: JSON
+  ): ConversionJob!
+
+  attachMarkdownArtifact(
+    jobId: UUID!
+    mdStoragePath: String!
+    assetsStoragePrefix: String
+    previewText: String
+    previewHtml: String
+  ): ConversionJob!
+}
