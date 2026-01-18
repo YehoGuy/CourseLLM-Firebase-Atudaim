@@ -1,0 +1,10 @@
+{"image":"mcr.microsoft.com/devcontainers/universal:2",
+"forwardPorts": [3000, 4000, 8080, 9099, 9199],
+"portsAttributes": {
+    "4000": { "label": "Emulator UI", "visibility": "public" },
+    "9099": { "label": "Auth Emulator", "visibility": "public" },
+    "8080": { "label": "Firestore Emulator", "visibility": "public" },
+    "9199": { "label": "Storage Emulator", "visibility": "public" },
+    "3000": { "label": "Next.js Frontend", "visibility": "public" }
+}
+}

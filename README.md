@@ -12,7 +12,7 @@
     ```
 2.  Install Python dependencies:
     ```bash
-    py -m pip install -r requirements.txt
+    python -m pip install -r requirements.txt
     ```
 3.  Create a `.env` file in the `materialToMD` folder:
     ```ini
@@ -26,4 +26,4 @@
 To verify the backend is working, run the automated test suite:
 ```bash
 cd materialToMD
-py -m pytest
+python -m pytest
