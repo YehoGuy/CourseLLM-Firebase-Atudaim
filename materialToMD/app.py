@@ -1,5 +1,8 @@
 """FastAPI wiring for the File Normalization Service HTTP API surface."""
 
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware # <--- IMPORT THIS
+
 from datetime import datetime
 import os
 from typing import List, Optional
@@ -22,6 +25,17 @@ from uuid import uuid4
 
 from google.cloud import storage as gcs           
 from google.auth.credentials import AnonymousCredentials
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"], 
+    allow_credentials=True,
+    allow_methods=["*"], 
+    allow_headers=["*"], 
+)
+
 
 def create_job_flow(job_id: str, user_id: str, payload: dict) -> None:
     save_job(job_id, {
