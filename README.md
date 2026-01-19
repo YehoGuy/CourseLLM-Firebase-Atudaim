@@ -5,16 +5,16 @@
 * **Node.js:** Latest LTS
 * **Firebase CLI:** `npm install -g firebase-tools`
 
-## 2. Backend Setup (materialToMD)
+## 2. Backend Setup (material-to-md)
 1.  Navigate to the backend folder:
     ```bash
-    cd materialToMD
+    cd services/material-to-md
     ```
 2.  Install Python dependencies:
     ```bash
     py -m pip install -r requirements.txt
     ```
-3.  Create a `.env` file in the `materialToMD` folder:
+3.  Create a `.env` file in the `services/material-to-md` folder:
     ```ini
     FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"
     FIREBASE_STORAGE_EMULATOR_HOST="127.0.0.1:9199"
@@ -22,19 +22,25 @@
     PROJECT_ID="demo-project"
     ```
 4. backend:
-cd materialToMD
- py -m uvicorn app:app --reload --port 8000
+   ```bash
+   cd services/material-to-md
+   py -m uvicorn app:app --reload --port 8000
+   ```
 
- 5. emualtors:
- cd materialToMD
- firebase emulators:start
+5. emulators (material-to-md):
+   ```bash
+   cd services/material-to-md
+   firebase emulators:start
+   ```
+   - Emulator config lives in `services/material-to-md/emulators/`
+   - Emulator logs are written to `services/material-to-md/emulators/logs/`
 
  6. frontend:
     npm run dev
 ## 3. Running Tests
 To verify the backend is working, run the automated test suite:
 ```bash
-cd materialToMD
+cd services/material-to-md
 python -m pytest
 
 # CourseLLM
@@ -65,5 +71,5 @@ The core goals are to:
 - **Dev Tools**: TypeScript 5, pnpm workspace, Node.js
 - **Deployment**: Firebase Hosting, App Hosting
 
-More technical details are available in openspecs/specs/project.md
+More technical details are available in openspec/project.md
 

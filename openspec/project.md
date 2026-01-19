@@ -63,7 +63,7 @@ CourseLLM-Firebase (Coursewise) is an educational platform that leverages AI to 
     lib/          → Utilities, auth, firebase init, types
     ai/           → Genkit flows and model config
     dataconnect-generated/  → Auto-generated DataConnect types
-  functions/    → Firebase Cloud Functions
+  services/firebase-functions/    → Firebase Cloud Functions
   dataconnect/  → DataConnect schema and queries
   tests/        → Playwright E2E tests
   docs/         → Documentation (auth implementation, PRD, etc.)
