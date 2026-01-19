@@ -1,13 +1,18 @@
+
+import { FileCode2 } from 'lucide-react'; 
 import { AppShell } from '@/components/layout/app-shell';
 import {
   BarChart2,
   LayoutDashboard,
   BookOpen,
+  Activity 
 } from 'lucide-react';
 
 const teacherNavItems = [
   { href: '/teacher', label: 'Dashboard', icon: <LayoutDashboard /> },
   { href: '/teacher/courses', label: 'Courses', icon: <BookOpen /> },
+  { href: '/teacher/material-to-md', label: 'Material to MD', icon: <BarChart2 /> }, // (Assuming you added this from previous steps)
+  { href: '/teacher/monitoring', label: 'System Health', icon: <Activity /> }, // <--- Add this line
 ];
 
 const user = {

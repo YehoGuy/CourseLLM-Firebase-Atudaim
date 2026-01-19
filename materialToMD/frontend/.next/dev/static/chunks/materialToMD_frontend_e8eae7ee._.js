@@ -52,7 +52,6 @@ __turbopack_context__.s([
 ]);
 var __TURBOPACK__imported__module__$5b$project$5d2f$materialToMD$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/materialToMD/frontend/node_modules/next/dist/compiled/react/jsx-dev-runtime.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$materialToMD$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/materialToMD/frontend/node_modules/next/dist/compiled/react/index.js [app-client] (ecmascript)");
-// 1. Add 'createUserWithEmailAndPassword' to imports
 var __TURBOPACK__imported__module__$5b$project$5d2f$materialToMD$2f$frontend$2f$node_modules$2f$firebase$2f$auth$2f$dist$2f$esm$2f$index$2e$esm$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__ = __turbopack_context__.i("[project]/materialToMD/frontend/node_modules/firebase/auth/dist/esm/index.esm.js [app-client] (ecmascript) <locals>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$materialToMD$2f$frontend$2f$node_modules$2f40$firebase$2f$auth$2f$dist$2f$esm$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/materialToMD/frontend/node_modules/@firebase/auth/dist/esm/index.js [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$materialToMD$2f$frontend$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/materialToMD/frontend/node_modules/next/navigation.js [app-client] (ecmascript)");
@@ -76,19 +75,18 @@ function LoginPage() {
         setError('');
         try {
             await (0, __TURBOPACK__imported__module__$5b$project$5d2f$materialToMD$2f$frontend$2f$node_modules$2f40$firebase$2f$auth$2f$dist$2f$esm$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["signInWithEmailAndPassword"])(auth, email, password);
-            console.log("✅ Login Success! Redirecting...");
+            console.log("Login Success! Redirecting...");
             router.push('/material');
         } catch (err) {
-            console.error("❌ LOGIN ERROR:", err.code, err.message); // <--- THIS WILL SHOW IN TERMINAL
-            // Auto-Register Logic
+            console.error("LOGIN ERROR:", err.code, err.message);
             if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') {
                 try {
-                    console.log("⚠️ User not found. Attempting to auto-register...");
+                    console.log("User not found. Attempting to auto-register...");
                     await (0, __TURBOPACK__imported__module__$5b$project$5d2f$materialToMD$2f$frontend$2f$node_modules$2f40$firebase$2f$auth$2f$dist$2f$esm$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["createUserWithEmailAndPassword"])(auth, email, password);
-                    console.log("✅ Registration Success! Redirecting...");
+                    console.log("Registration Success! Redirecting...");
                     router.push('/material');
                 } catch (signUpErr) {
-                    console.error("❌ REGISTRATION FAILED:", signUpErr.code, signUpErr.message);
+                    console.error("REGISTRATION FAILED:", signUpErr.code, signUpErr.message);
                     setError('Failed to create account: ' + signUpErr.message);
                 }
             } else {
@@ -116,7 +114,7 @@ function LoginPage() {
                     children: "Login / Register"
                 }, void 0, false, {
                     fileName: "[project]/materialToMD/frontend/app/login/page.tsx",
-                    lineNumber: 46,
+                    lineNumber: 44,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$materialToMD$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -124,7 +122,7 @@ function LoginPage() {
                     children: "Entering a new email will auto-create an account."
                 }, void 0, false, {
                     fileName: "[project]/materialToMD/frontend/app/login/page.tsx",
-                    lineNumber: 47,
+                    lineNumber: 45,
                     columnNumber: 9
                 }, this),
                 error && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$materialToMD$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -134,7 +132,7 @@ function LoginPage() {
                     children: error
                 }, void 0, false, {
                     fileName: "[project]/materialToMD/frontend/app/login/page.tsx",
-                    lineNumber: 49,
+                    lineNumber: 47,
                     columnNumber: 19
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$materialToMD$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -149,7 +147,7 @@ function LoginPage() {
                     }
                 }, void 0, false, {
                     fileName: "[project]/materialToMD/frontend/app/login/page.tsx",
-                    lineNumber: 51,
+                    lineNumber: 49,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$materialToMD$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("input", {
@@ -164,7 +162,7 @@ function LoginPage() {
                     }
                 }, void 0, false, {
                     fileName: "[project]/materialToMD/frontend/app/login/page.tsx",
-                    lineNumber: 60,
+                    lineNumber: 58,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$materialToMD$2f$frontend$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
@@ -178,18 +176,18 @@ function LoginPage() {
                     children: "Sign In"
                 }, void 0, false, {
                     fileName: "[project]/materialToMD/frontend/app/login/page.tsx",
-                    lineNumber: 69,
+                    lineNumber: 67,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/materialToMD/frontend/app/login/page.tsx",
-            lineNumber: 45,
+            lineNumber: 43,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/materialToMD/frontend/app/login/page.tsx",
-        lineNumber: 44,
+        lineNumber: 42,
         columnNumber: 5
     }, this);
 }

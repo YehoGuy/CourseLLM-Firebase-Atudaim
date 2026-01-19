@@ -1,4 +1,8 @@
 """FastAPI wiring for the File Normalization Service HTTP API surface."""
+import psutil
+import platform
+
+from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware # <--- IMPORT THIS
@@ -245,6 +249,41 @@ def _job_to_response(job) -> JobResponse:
         processed_path=job.processed_path,
         is_deleted=job.is_deleted,
     )
+
+@app.get("/system-stats")
+def get_system_stats():
+    """
+    Returns real-time system usage statistics.
+    """
+    # CPU Usage
+    cpu_percent = psutil.cpu_percent(interval=None)
+    
+    # Memory Usage (RAM)
+    memory = psutil.virtual_memory()
+    
+    # Disk Usage (Root partition)
+    disk = psutil.disk_usage('/')
+    
+    return {
+        "cpu": {
+            "usage": cpu_percent,
+            "cores": psutil.cpu_count(logical=True),
+        },
+        "memory": {
+            "total": round(memory.total / (1024**3), 2), # GB
+            "used": round(memory.used / (1024**3), 2),   # GB
+            "percent": memory.percent
+        },
+        "disk": {
+            "total": round(disk.total / (1024**3), 2),   # GB
+            "free": round(disk.free / (1024**3), 2),     # GB
+            "percent": disk.percent
+        },
+        "system": {
+            "os": platform.system(),
+            "node": platform.node() # Computer Name
+        }
+    }
 
 
 app = create_app()
