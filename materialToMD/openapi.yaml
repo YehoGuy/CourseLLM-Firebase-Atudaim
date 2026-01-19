@@ -1,0 +1,216 @@
+openapi: 3.1.0
+info:
+  title: File Normalization Service API
+  version: 1.0.0
+  description: >
+    REST interface for ingesting files, monitoring conversion jobs, and
+    journaling processed outputs for downstream RAG consumers.
+servers:
+  - url: http://localhost:8000
+    description: Local development
+components:
+  schemas:
+    JobStatus:
+      type: string
+      enum: [QUEUED, PROCESSING, COMPLETED, FAILED]
+    Job:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        source_path:
+          type: string
+          description: Path of the source file relative to the incoming directory.
+        status:
+          $ref: "#/components/schemas/JobStatus"
+        retry_count:
+          type: integer
+        error_message:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        processed_path:
+          type: string
+          nullable: true
+          description: Absolute path to the generated Markdown file, when available.
+        is_deleted:
+          type: boolean
+      required: [id, source_path, status, retry_count, created_at, updated_at, is_deleted]
+    Stats:
+      type: object
+      properties:
+        queued:
+          type: integer
+        processing:
+          type: integer
+        completed:
+          type: integer
+        failed:
+          type: integer
+      required: [queued, processing, completed, failed]
+    Asset:
+      type: object
+      properties:
+        path:
+          type: string
+          description: Relative path where the asset would be stored alongside the Markdown.
+        content_type:
+          type: string
+        data_base64:
+          type: string
+          format: byte
+      required: [path, content_type, data_base64]
+    ConvertResponse:
+      type: object
+      properties:
+        markdown:
+          type: string
+        assets:
+          type: array
+          items:
+            $ref: "#/components/schemas/Asset"
+      required: [markdown, assets]
+paths:
+  /convert:
+    post:
+      summary: Convert a single file synchronously
+      description: Accepts a file upload and returns Markdown plus extracted assets immediately.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Conversion succeeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConvertResponse"
+        "400":
+          description: Unsupported file type or conversion failure
+  /v1/ingest:
+    post:
+      summary: Enqueue a file for asynchronous conversion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                source_path:
+                  type: string
+                  description: Path of the incoming file relative to the configured incoming directory.
+              required: [source_path]
+      responses:
+        "202":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Source file not found
+  /v1/trigger-scan:
+    post:
+      summary: Scan the incoming directory for untracked files
+      responses:
+        "200":
+          description: Scan started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: integer
+                required: [queued]
+  /v1/admin/stats:
+    get:
+      summary: Retrieve counts of jobs by status
+      responses:
+        "200":
+          description: Status counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stats"
+  /v1/admin/jobs:
+    get:
+      summary: List jobs with optional filters
+      parameters:
+        - in: query
+          name: status
+          schema:
+            $ref: "#/components/schemas/JobStatus"
+        - in: query
+          name: start
+          schema:
+            type: string
+            format: date-time
+          description: Include jobs updated at or after this timestamp.
+        - in: query
+          name: end
+          schema:
+            type: string
+            format: date-time
+          description: Include jobs updated at or before this timestamp.
+      responses:
+        "200":
+          description: Array of jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"
+  /v1/admin/jobs/{id}:
+    get:
+      summary: Get a single job by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          description: Job not found
+  /v1/journal/sync:
+    get:
+      summary: Retrieve jobs updated since a timestamp
+      parameters:
+        - in: query
+          name: since
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: Return jobs updated after this timestamp.
+      responses:
+        "200":
+          description: Job updates suitable for downstream syncing
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Job"

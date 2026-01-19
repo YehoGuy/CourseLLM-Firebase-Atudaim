@@ -50,7 +50,17 @@ next-env.d.ts
 firebase-debug.log
 firestore-debug.log
 
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
 # dataconnect
 dataconnect/.dataconnect
 src/dataconnect-generated/
 src/dataconnect-admin-generated/
+
