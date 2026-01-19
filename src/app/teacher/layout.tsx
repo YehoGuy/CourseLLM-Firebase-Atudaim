@@ -1,4 +1,5 @@
 
+
 import { FileCode2 } from 'lucide-react'; 
 import { AppShell } from '@/components/layout/app-shell';
 import {
@@ -7,6 +8,9 @@ import {
   BookOpen,
   Activity 
 } from 'lucide-react';
+import ClientOnly from '@/components/ClientOnly';
+import RoleGuardClient from '@/components/RoleGuardClient';
+import InnerAppShellClient from '@/components/InnerAppShellClient';
 
 const teacherNavItems = [
   { href: '/teacher', label: 'Dashboard', icon: <LayoutDashboard /> },
@@ -21,14 +25,21 @@ const user = {
   avatar: 'https://i.pravatar.cc/150?u=teacher-1',
 };
 
+
+
+
 export default function TeacherLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <AppShell navItems={teacherNavItems} user={user}>
-      {children}
-    </AppShell>
+    <ClientOnly>
+      <RoleGuardClient requiredRole="teacher">
+        <InnerAppShellClient role="teacher">
+          {children}
+        </InnerAppShellClient>
+      </RoleGuardClient>
+    </ClientOnly>
   );
 }
