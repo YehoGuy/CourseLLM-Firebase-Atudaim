@@ -12,7 +12,7 @@
     ```
 2.  Install Python dependencies:
     ```bash
-    python -m pip install -r requirements.txt
+    py -m pip install -r requirements.txt
     ```
 3.  Create a `.env` file in the `materialToMD` folder:
     ```ini
@@ -21,7 +21,16 @@
     FIREBASE_AUTH_EMULATOR_HOST="127.0.0.1:9099"
     PROJECT_ID="demo-project"
     ```
+4. backend:
+cd materialToMD
+ py -m uvicorn app:app --reload --port 8000
 
+ 5. emualtors:
+ cd materialToMD
+ firebase emulators:start
+
+ 6. frontend:
+    npm run dev
 ## 3. Running Tests
 To verify the backend is working, run the automated test suite:
 ```bash
