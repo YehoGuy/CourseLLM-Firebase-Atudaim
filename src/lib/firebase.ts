@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { connectAuthEmulator, getAuth, GoogleAuthProvider } from "firebase/auth";
 import { connectFirestoreEmulator, getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { connectStorageEmulator, getStorage } from "firebase/storage";
@@ -12,52 +12,57 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase only once (Next.js HMR safety)
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
 // Connect to emulators if in development
-if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
-  console.log("Connecting to Firebase Emulators...");
+// Check if emulators are already connected to avoid "App already connected" errors or similar logic reruns
+if (process.env.NODE_ENV === "development" && typeof window !== "undefined" && !(global as any)._emulatorsConnected) {
+  try {
+    console.log("Connecting to Firebase Emulators...");
 
-  const isCodespace = window.location.hostname.includes("app.github.dev");
+    const isCodespace = window.location.hostname.includes("app.github.dev");
 
-  if (isCodespace) {
-    // We are in a Codespace, we need to construct the forwarded URLs
-    // Format: <name>-<port>.app.github.dev
-    // Current hostname example: fictional-winner-9002.app.github.dev
+    if (isCodespace) {
+      // We are in a Codespace, we need to construct the forwarded URLs
+      // Format: <name>-<port>.app.github.dev
+      // Current hostname example: fictional-winner-9002.app.github.dev
 
-    // Extract the base name (everything before the last dash-port)
-    const match = window.location.hostname.match(/^(.*)-(\d+)\.app\.github\.dev$/);
+      // Extract the base name (everything before the last dash-port)
+      const match = window.location.hostname.match(/^(.*)-(\d+)\.app\.github\.dev$/);
 
-    if (match) {
-      const baseName = match[1];
+      if (match) {
+        const baseName = match[1];
 
-      const authHost = `https://${baseName}-9099.app.github.dev`;
-      // Note: allow mismatching domain for auth in dev if needed, but the SDK handles the passed URL
-      connectAuthEmulator(auth, authHost);
+        const authHost = `https://${baseName}-9099.app.github.dev`;
+        // Note: allow mismatching domain for auth in dev if needed, but the SDK handles the passed URL
+        connectAuthEmulator(auth, authHost);
 
-      const firestoreHost = `${baseName}-8080.app.github.dev`;
-      connectFirestoreEmulator(db, firestoreHost, 443);
+        const firestoreHost = `${baseName}-8080.app.github.dev`;
+        connectFirestoreEmulator(db, firestoreHost, 443);
 
-      const storageHost = `${baseName}-9199.app.github.dev`;
-      connectStorageEmulator(storage, storageHost, 443);
+        const storageHost = `${baseName}-9199.app.github.dev`;
+        connectStorageEmulator(storage, storageHost, 443);
 
-      console.log(`Connected to Codespace Emulators: ${baseName}`);
+        console.log(`Connected to Codespace Emulators: ${baseName}`);
+      } else {
+        // Fallback if regex fails but we think it's codespace
+        console.warn("Could not parse Codespace hostname.");
+      }
     } else {
-      // Fallback if regex fails but we think it's codespace
-      console.warn("Could not parse Codespace hostname, falling back to localhost.");
-      connectAuthEmulator(auth, "http://127.0.0.1:9099");
-      connectFirestoreEmulator(db, "127.0.0.1", 8080);
-      connectStorageEmulator(storage, "127.0.0.1", 9199);
+      // Standard Localhost
+      // Note: Using "localhost" instead of "127.0.0.1" is often safer for Firestore SDK
+      connectAuthEmulator(auth, "http://localhost:9099");
+      connectFirestoreEmulator(db, "localhost", 8080);
+      connectStorageEmulator(storage, "localhost", 9199);
     }
-  } else {
-    // Standard Localhost
-    connectAuthEmulator(auth, "http://127.0.0.1:9099");
-    connectFirestoreEmulator(db, "127.0.0.1", 8080);
-    connectStorageEmulator(storage, "127.0.0.1", 9199);
+    (global as any)._emulatorsConnected = true;
+  } catch (err) {
+    console.warn("Failed to connect to emulators (might be already connected):", err);
   }
 }
 
