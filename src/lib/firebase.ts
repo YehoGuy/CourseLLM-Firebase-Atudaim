@@ -19,12 +19,46 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 
 // Connect to emulators if in development
-if (process.env.NODE_ENV === "development") {
-  // Use a different env var if you want to explicitly control this, but dev usually means local/emulator
+if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
   console.log("Connecting to Firebase Emulators...");
-  connectAuthEmulator(auth, "http://127.0.0.1:9099");
-  connectFirestoreEmulator(db, "127.0.0.1", 8080);
-  connectStorageEmulator(storage, "127.0.0.1", 9199);
+
+  const isCodespace = window.location.hostname.includes("app.github.dev");
+
+  if (isCodespace) {
+    // We are in a Codespace, we need to construct the forwarded URLs
+    // Format: <name>-<port>.app.github.dev
+    // Current hostname example: fictional-winner-9002.app.github.dev
+
+    // Extract the base name (everything before the last dash-port)
+    const match = window.location.hostname.match(/^(.*)-(\d+)\.app\.github\.dev$/);
+
+    if (match) {
+      const baseName = match[1];
+
+      const authHost = `https://${baseName}-9099.app.github.dev`;
+      // Note: allow mismatching domain for auth in dev if needed, but the SDK handles the passed URL
+      connectAuthEmulator(auth, authHost);
+
+      const firestoreHost = `${baseName}-8080.app.github.dev`;
+      connectFirestoreEmulator(db, firestoreHost, 443);
+
+      const storageHost = `${baseName}-9199.app.github.dev`;
+      connectStorageEmulator(storage, storageHost, 443);
+
+      console.log(`Connected to Codespace Emulators: ${baseName}`);
+    } else {
+      // Fallback if regex fails but we think it's codespace
+      console.warn("Could not parse Codespace hostname, falling back to localhost.");
+      connectAuthEmulator(auth, "http://127.0.0.1:9099");
+      connectFirestoreEmulator(db, "127.0.0.1", 8080);
+      connectStorageEmulator(storage, "127.0.0.1", 9199);
+    }
+  } else {
+    // Standard Localhost
+    connectAuthEmulator(auth, "http://127.0.0.1:9099");
+    connectFirestoreEmulator(db, "127.0.0.1", 8080);
+    connectStorageEmulator(storage, "127.0.0.1", 9199);
+  }
 }
 
 // Enable offline persistence so reads can be served from cache when offline.
