@@ -65,7 +65,11 @@ Playwright reports are written to `misc/playwright-report/` and test artifacts t
       ```bash
       npm install -g firebase-tools pnpm && pnpm install && pip install -r services/material-to-md/requirements.txt
       ```
-3.  **Start Emulators & Backend**:
+3.  **Setup Environment**:
+    Create a `.env.local` file in the root directory for your Firebase client keys (API Key, Project ID, etc.).
+    *Note:* Codespaces do not inherit your local `.env.local` or `.env` files for security.
+
+4.  **Start Emulators & Backend**:
     ```bash
     cd services/material-to-md
     firebase emulators:start
@@ -75,11 +79,16 @@ Playwright reports are written to `misc/playwright-report/` and test artifacts t
     cd services/material-to-md
     python -m uvicorn app:app --reload --port 8000
     ```
-4.  **Start Frontend**:
+5.  **Start Frontend**:
     *(Open a new terminal)*
     ```bash
     pnpm run dev
     ```
+
+## 2.6. Troubleshooting
+- **"Port taken" / "Address already in use"**: Run `pkill -f node && pkill -f java` to kill stuck emulator processes.
+- **"PERMISSION_DENIED" on writes**: Ensure `services/material-to-md/emulators/firestore.rules` is up to date and not expired.
+- **"127.0.0.1 refused to connect"**: Ensure your `firebase.ts` supports dynamic Codespace URLs (already configured in `src/lib/firebase.ts`).
 
 # PR Checklist (Project Hygiene)
 - Codespace works: if not, document exact setup steps and required env vars for others.
