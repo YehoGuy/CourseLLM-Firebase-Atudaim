@@ -4,6 +4,7 @@ import React, { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/components/AuthProviderClient"
 import { auth } from "@/lib/firebase"
+import { getRedirectResult } from "firebase/auth"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LogIn, Loader2 } from "lucide-react"
@@ -12,6 +13,20 @@ export default function LoginPage() {
   const { signInWithGoogle, loading, firebaseUser, refreshProfile, profile } = useAuth()
   const [navigating, setNavigating] = useState(false)
   const router = useRouter()
+
+  React.useEffect(() => {
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          console.log("Redirect result user:", result.user);
+        } else {
+          console.log("No redirect result found.");
+        }
+      })
+      .catch((error) => {
+        console.error("Redirect login error:", error);
+      });
+  }, []);
 
   // Handle post-redirect state or existing session
   React.useEffect(() => {
