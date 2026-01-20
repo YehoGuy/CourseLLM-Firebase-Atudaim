@@ -14,7 +14,7 @@ This guide walks you through the project structure, local setup, and how to exer
 - `db.py` — Database engine/session helpers and metadata initialization.
 - `settings.py` — Configuration (env-driven) for paths, concurrency, retries, polling.
 - `cli.py` — Interactive CLI client to drive and verify every endpoint.
-- `openapi.yaml` — OpenAPI 3.1 specification of the API surface.
+- `docs/openapi.yaml` — OpenAPI 3.1 specification of the API surface.
 - `tests/` — Pytest suites for converters and pipeline behavior.
 - `storage/` — Default local storage root (created on first run):
   - `incoming/` — Source files to be processed.
@@ -134,7 +134,7 @@ For ingest, if you provide a local file path, the CLI copies it into `storage/in
 - Start server: `uvicorn app:app --reload`
 - Run all tests: `pytest -q`
 - Start CLI: `python cli.py`
-- Open OpenAPI: `cat openapi.yaml` or browse `http://localhost:8000/docs`
+- Open OpenAPI: `cat docs/openapi.yaml` or browse `http://localhost:8000/docs`
 
 ---
 

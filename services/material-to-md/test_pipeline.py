@@ -99,6 +99,60 @@ def test_ingest_process_and_stats(tmp_path: Path) -> None:
         assert stats["failed"] == 0
 
 
+def test_ingest_missing_source_returns_404(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    manager = JobManager(settings=settings, converter=_simple_converter())
+    app = create_app(settings=settings, manager=manager)
+
+    with TestClient(app) as client:
+        resp = client.post("/v1/ingest", json={"source_path": "missing.txt"})
+        assert resp.status_code == 404
+
+
+def test_admin_jobs_filters(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    manager = JobManager(settings=settings, converter=_simple_converter())
+    app = create_app(settings=settings, manager=manager)
+    _write_sample_file(settings.storage_root / settings.incoming_dir / "a.txt", "A")
+    _write_sample_file(settings.storage_root / settings.incoming_dir / "b.txt", "B")
+
+    with TestClient(app) as client:
+        client.post("/v1/ingest", json={"source_path": "a.txt"})
+        client.post("/v1/ingest", json={"source_path": "b.txt"})
+        jobs = client.get("/v1/admin/jobs").json()
+        assert jobs
+        for job in jobs:
+            _wait_for_status(manager, job["id"], JobStatus.completed)
+
+        filtered = client.get("/v1/admin/jobs", params={"status": JobStatus.completed.value}).json()
+        assert len(filtered) >= 2
+        assert all(job["status"] == JobStatus.completed.value for job in filtered)
+
+        future_start = (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat()
+        future = client.get("/v1/admin/jobs", params={"start": future_start}).json()
+        assert future == []
+
+        past_end = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
+        past = client.get("/v1/admin/jobs", params={"end": past_end}).json()
+        assert past == []
+
+
+def test_ingest_nested_path(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    manager = JobManager(settings=settings, converter=_simple_converter())
+    app = create_app(settings=settings, manager=manager)
+    nested = settings.storage_root / settings.incoming_dir / "nested" / "note.txt"
+    _write_sample_file(nested, "nested")
+
+    with TestClient(app) as client:
+        resp = client.post("/v1/ingest", json={"source_path": "nested/note.txt"})
+        assert resp.status_code == 202
+        job_id = resp.json()["id"]
+        _wait_for_status(manager, job_id, JobStatus.completed)
+        processed = settings.storage_root / settings.processed_dir / "nested" / "note.md"
+        assert processed.exists()
+
+
 def test_retry_then_success(tmp_path: Path) -> None:
     attempts = {"count": 0}
 
@@ -121,6 +175,16 @@ def test_retry_then_success(tmp_path: Path) -> None:
         job = _wait_for_status(manager, job_id, JobStatus.completed)
         assert attempts["count"] >= 2
         assert job.retry_count == 1
+
+
+def test_journal_requires_since(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    manager = JobManager(settings=settings, converter=_simple_converter())
+    app = create_app(settings=settings, manager=manager)
+
+    with TestClient(app) as client:
+        resp = client.get("/v1/journal/sync")
+        assert resp.status_code == 422
 
 
 def test_dead_letter_on_exceeded_retries(tmp_path: Path) -> None:

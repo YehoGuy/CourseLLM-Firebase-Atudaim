@@ -12,9 +12,10 @@ from openpyxl import Workbook
 from pptx import Presentation
 from pptx.util import Inches as PptInches
 
-from Converter import ConversionError, convert_to_markdown
+from Converter import Asset, ConversionError, convert_to_markdown
 from app import create_app
 from settings import Settings
+from storage import LocalStorageBackend
 
 
 def _test_settings(tmp_path: Path) -> Settings:
@@ -177,6 +178,42 @@ def test_html_and_txt_conversion(tmp_path: Path) -> None:
     assert "second line" in txt_result.markdown
 
 
+def test_txt_collapses_blank_lines(tmp_path: Path) -> None:
+    txt_path = tmp_path / "multi.txt"
+    txt_path.write_text("line1\n\n\n\nline2\n\n\nline3", encoding="utf-8")
+    txt_result = convert_to_markdown(txt_path.read_bytes(), txt_path.name)
+    assert "\n\n\n" not in txt_result.markdown
+    assert "line1" in txt_result.markdown
+    assert "line2" in txt_result.markdown
+    assert "line3" in txt_result.markdown
+
+
+def test_csv_escapes_markdown_chars(tmp_path: Path) -> None:
+    csv_path = tmp_path / "escape.csv"
+    csv_path.write_text("col1,col2\npipe|here,back`tick\\\\test", encoding="utf-8")
+    result = convert_to_markdown(csv_path.read_bytes(), csv_path.name)
+    md = result.markdown
+    assert "pipe\\\\|here" in md
+    assert "back\\`tick\\\\\\\\test" in md
+
+
+def test_xlsx_includes_empty_sheet_heading(tmp_path: Path) -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Has Data"
+    ws.append(["h1", "h2"])
+    ws.append(["v1", "v2"])
+    wb.create_sheet("Empty Sheet")
+    buff = BytesIO()
+    wb.save(buff)
+
+    result = convert_to_markdown(buff.getvalue(), "multi.xlsx")
+    md = result.markdown
+    assert "## Has Data" in md
+    assert "| h1 | h2 |" in md
+    assert "## Empty Sheet" in md
+
+
 def test_unsupported_extension(tmp_path: Path) -> None:
     src = tmp_path / "note.bin"
     src.write_bytes(b"hello")
@@ -220,3 +257,17 @@ def test_fastapi_rejects_unknown_extension(tmp_path: Path) -> None:
         files = {"file": ("note.bin", b"hello", "application/octet-stream")}
         resp = client.post("/convert", files=files)
         assert resp.status_code == 400
+
+
+def test_storage_writes_assets(tmp_path: Path) -> None:
+    settings = _test_settings(tmp_path)
+    storage = LocalStorageBackend(settings)
+    storage.ensure_dirs()
+    encoded = base64.b64encode(b"img-bytes").decode("ascii")
+    asset = Asset(path="assets/test.png", content_type="image/png", data_base64=encoded)
+
+    output_path = storage.write_processed("note.txt", "# Hello\n", [asset])
+    assert Path(output_path).exists()
+    processed_dir = Path(settings.storage_root) / settings.processed_dir
+    assert (processed_dir / "note.md").exists()
+    assert (processed_dir / "assets" / "test.png").exists()
