@@ -13,9 +13,12 @@ CourseLLM-Firebase-Atudaim/
 | | |---- material-to-md/
 | | | | |---- app.py
 | | | | |---- requirements.txt
-| | | | |---- openapi.yaml
 | | | | |---- pytest.ini
 | | | | |---- tests/
+| | | | |---- docs/
+| | | | | | |---- GUIDE.md
+| | | | | | |---- openapi.yaml
+| | | | | | |---- FNS_PRD.pdf
 | | | | |---- emulators/
 | | | | | | |---- firestore.rules
 | | | | | | |---- firestore.indexes.json
@@ -28,3 +31,4 @@ CourseLLM-Firebase-Atudaim/
 ---- docs/
 ---- tests/
 ---- openspec/
+---- misc/
