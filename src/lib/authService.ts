@@ -2,6 +2,20 @@ import { auth, googleProvider } from "./firebase";
 import { signInWithPopup, signOut, signInWithRedirect } from "firebase/auth";
 
 export async function signInWithGoogle() {
+  const isCodespace = typeof window !== "undefined" && window.location.hostname.includes("app.github.dev");
+
+  if (isCodespace) {
+    // Codespaces popups often fail to communicate back to the main window due to cross-origin/iframe constraints.
+    // Use redirect flow instead.
+    try {
+      await signInWithRedirect(auth, googleProvider);
+      return null as any; // page will redirect
+    } catch (err) {
+      handleAuthError(err);
+      throw err;
+    }
+  }
+
   try {
     const res = await signInWithPopup(auth, googleProvider);
     return res.user;

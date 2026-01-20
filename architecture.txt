@@ -1,0 +1,34 @@
+CourseLLM-Firebase-Atudaim/
+---- README.md
+---- package.json
+---- pnpm-lock.yaml
+---- firebase.json
+---- src/
+| | |---- app/
+| | |---- components/
+| | |---- lib/
+| | |---- ai/
+| | |---- dataconnect-generated/
+---- services/
+| | |---- material-to-md/
+| | | | |---- app.py
+| | | | |---- requirements.txt
+| | | | |---- pytest.ini
+| | | | |---- tests/
+| | | | |---- docs/
+| | | | | | |---- GUIDE.md
+| | | | | | |---- openapi.yaml
+| | | | | | |---- FNS_PRD.pdf
+| | | | |---- emulators/
+| | | | | | |---- firestore.rules
+| | | | | | |---- firestore.indexes.json
+| | | | | | |---- storage.rules
+| | | | | | |---- logs/
+| | |---- firebase-functions/
+| | | | |---- package.json
+| | | | |---- src/
+---- dataconnect/
+---- docs/
+---- tests/
+---- openspec/
+---- misc/

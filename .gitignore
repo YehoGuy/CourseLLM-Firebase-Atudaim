@@ -24,6 +24,7 @@ package-lock.json
 # misc
 .DS_Store
 *.pem
+/misc/
 
 # debug
 npm-debug.log*
@@ -45,6 +46,9 @@ next-env.d.ts
 .env.*.local
 .env*
 !.env.local.example
+
+# secrets
+atudaimllm-16887135-f0c82-firebase-adminsdk-fbsvc-609bd62067.json
 
 # firebase
 firebase-debug.log
