@@ -26,6 +26,7 @@ export default defineConfig({
     env: {
       ...process.env,
       ENABLE_TEST_AUTH: 'true',
+      FIRESTORE_EMULATOR_HOST: 'localhost:8080', 
     },
   },
 });
